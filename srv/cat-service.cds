@@ -1,33 +1,9 @@
 using {sap.capire.bookshop as my} from '../db/schema';
 
-service CatalogService {
+service CatalogService @(path: '/catalog') {
+   @cds.redirection.target entity Books as projection on my.Books;
+   entity Authors      as projection on my.Authors;
 
-  /** For displaying lists of Books */
-  @readonly
-  entity ListOfBooks as
-    projection on Books {
-      *,
-      genre.name      as genre,
-      currency.symbol as currency,
-    }
-    excluding {
-      descr
-    };
-
-  /** For display in details pages */
-  @readonly
-  entity Books       as
-    projection on my.Books {
-      *,
-      author.name as author
-    }
-    excluding {
-      createdBy,
-      modifiedBy
-    };
-
-  @requires: 'authenticated-user'
-  action submitOrder(book: Books:ID, quantity: Integer) returns {
-    stock : Integer
-  };
+   action submitOrder(book: Books:ID, quantity: Integer)
+    returns { stock: Integer };
 }

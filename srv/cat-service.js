@@ -1,36 +1,38 @@
-const cds = require('@sap/cds')
+// srv/cat-service.js
+module.exports = class CatalogService extends cds.ApplicationService {
+  init() {
+    const { Books } = this.entities;
 
-module.exports = class CatalogService extends cds.ApplicationService { init() {
+    // Validate stock can't go negative
+    this.before("CREATE", Books, (req) => {
+      if (req.data.stock < 0) req.error(400, "Stock cannot be negative");
+      if (req.data.price < 10) {
+        cds
+          .log("orders")
+          .error(" Price too low", { price: req.data.price, by: req.user.id });
 
-  const { Books } = cds.entities('sap.capire.bookshop')
-  const { ListOfBooks } = this.entities
+        req.error(400, "Price must be at least 10");
+      }
+    });
 
-  // Add some discount for overstocked books
-  this.after('each', ListOfBooks, book => {
-    if (book.stock > 111) book.title += ` -- 11% discount!`
-  })
+    // Implement submitOrder
+    this.on("submitOrder", async (req) => {
+      const { book, quantity } = req.data;
+      if (quantity < 1) req.reject(400, "Quantity must be positive");
 
-  // Reduce stock of ordered books if available stock suffices
-  this.on('submitOrder', async req => {
-    let { book:id, quantity } = req.data
-    let book = await SELECT.one.from (Books, id, b => b.stock)
+      const row = await SELECT.one.from(Books).where({ ID: book });
+      if (!row) req.reject(404, `Book ${book} not found`);
+      if (row.stock < quantity) req.reject(409, `Only ${row.stock} in stock`);
 
-    // Validate input data
-    if (!book) return req.error (404, `Book #${id} doesn't exist`)
-    if (quantity < 1) return req.error (400, `quantity has to be 1 or more`)
-    if (!book.stock || quantity > book.stock) return req.error (409, `${quantity} exceeds stock for book #${id}`)
+      await UPDATE(Books, book).set({ stock: { "-=": quantity } });
+      const updated = await SELECT.one.from(Books).where({ ID: book });
+      return { stock: updated.stock };
+    });
 
-    // Reduce stock in database and return updated stock value
-    await UPDATE (Books, id) .with ({ stock: book.stock -= quantity })
-    return book
-  })
+    this.after("UPDATE", Books, (each, req) => {
+      cds.log("orders").info("Book updated", { id: each.ID, by: req.user.id });
+    });
 
-  // Emit event when an order has been submitted
-  this.after('submitOrder', async (_,req) => {
-    let { book, quantity } = req.data
-    await this.emit('OrderedBook', { book, quantity, buyer: req.user.id })
-  })
-
-  // Delegate requests to the underlying generic service
-  return super.init()
-}}
+    return super.init();
+  }
+};
