@@ -4,6 +4,7 @@
   "dependencies": {
     "@cap-js/hana": "^2",
     "@sap/cds": "^9",
+    "@sap/cds-mtxs": "^3",
     "@sap/xssec": "^4"
   },
   "devDependencies": {
@@ -40,8 +41,13 @@
         "auth": {
           "kind": "xsuaa"
         },
-        "db": "hana"
+        "db": "hana",
+        "multitenancy": true
+      },
+      "[with-mtx]": {
+        "multitenancy": true
       }
-    }
+    },
+    "profile": "with-mtx-sidecar"
   }
 }
