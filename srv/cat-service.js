@@ -3,6 +3,16 @@ module.exports = class CatalogService extends cds.ApplicationService {
   init() {
     const { Books } = this.entities;
 
+    this.before("*", (req) => {
+      cds
+        .log("access")
+        .info(
+          "event=" + req.event,
+          "tenant=" + req.tenant,
+          "user=" + req.user.id,
+        );
+    });
+
     // Validate stock can't go negative
     this.before("CREATE", Books, (req) => {
       if (req.data.stock < 0) req.error(400, "Stock cannot be negative");
